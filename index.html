@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<!--
+  HEATSHIELD - website
+  Files: index.html (this page) + config.js (your Firebase settings - the only file you edit)
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeatShield — WBGT Station Record</title>
+<meta name="description" content="Live wet bulb globe temperature (WBGT) station record with history, charts and Excel export.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f1e9d8; --paper2:#e7dcc4; --card:#f7f1e3;
+  --ink:#1d1a14; --ink2:#5b5445; --ink3:#8a8170;
+  --brass:#9a6b1f; --oxblood:#7a1f1d; --steel:#27475f;
+  --l0:#3e6b48; --l1:#c99a1b; --l2:#c0541b; --l3:#8b1a1a;
+  --display:'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --label:'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --body:Georgia, 'Times New Roman', serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.9;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .16  0 0 0 .10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+a{color:var(--oxblood)}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0}
+sub{font-size:.7em}
+
+/* ---------- masthead ---------- */
+.mast{padding-top:20px}
+.mast-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--label);letter-spacing:.14em;text-transform:uppercase;font-size:13px;color:var(--ink2);padding-bottom:8px;border-bottom:1px solid var(--ink)}
+.mast-title{text-align:center;padding:20px 0 12px}
+.mast-title h1{font-size:clamp(50px,10vw,100px);line-height:.95;letter-spacing:.01em}
+.mast-title h1 em{font-style:italic;color:var(--oxblood)}
+.mast-title p{font-family:var(--label);letter-spacing:.32em;text-transform:uppercase;font-size:14px;margin:10px 0 0;color:var(--ink2)}
+.mast-bottom{border-top:3px double var(--ink);border-bottom:1px solid var(--ink);padding:9px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-family:var(--label);letter-spacing:.12em;text-transform:uppercase;font-size:14px}
+.lamp{display:inline-flex;align-items:center;gap:9px;font-weight:600}
+.lamp i{width:11px;height:11px;border-radius:50%;background:#9a9384;display:inline-block;box-shadow:0 0 0 2px var(--paper),0 0 0 3px #9a9384}
+.lamp.on i{background:var(--l0);box-shadow:0 0 0 2px var(--paper),0 0 0 3px var(--l0);animation:pulse 1.6s infinite}
+.lamp.off i{background:var(--l3);box-shadow:0 0 0 2px var(--paper),0 0 0 3px var(--l3)}
+@keyframes pulse{50%{opacity:.3}}
+
+/* ---------- banners ---------- */
+.banner{margin:18px 0 0;border:1.5px solid var(--ink);background:#f0d9a2;padding:13px 18px;font-size:16.5px}
+.banner.red{background:#e7c0b4}
+.banner .k{font-family:var(--label);letter-spacing:.16em;text-transform:uppercase}
+.setup{margin:26px 0;border:1.5px dashed var(--oxblood);padding:18px 22px;background:#f4e4d6}
+
+/* ---------- sections ---------- */
+.sec{padding:46px 0 4px}
+.secHead{border-bottom:1px solid var(--ink);margin-bottom:20px;padding-bottom:8px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.secHead h2{font-size:clamp(28px,4.2vw,42px)}
+.secnum{font-family:var(--label);letter-spacing:.22em;font-size:13px;color:var(--brass);text-transform:uppercase}
+.kicker{font-family:var(--label);letter-spacing:.2em;text-transform:uppercase;font-size:13px;color:var(--ink2)}
+.card{background:var(--card);border:1px solid var(--ink);position:relative;padding:20px 20px 18px}
+.card::before{content:"";position:absolute;inset:4px;border:1px solid rgba(29,26,20,.32);pointer-events:none}
+.card > *{position:relative}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:1.15fr 1fr;gap:22px;margin-top:22px}
+@media(max-width:880px){.hero{grid-template-columns:1fr}}
+.dialwrap{position:relative}
+.dialwrap svg{width:100%;height:auto;display:block;transition:filter .5s,opacity .5s}
+.dl{font-family:var(--label);font-size:13px;fill:#1d1a14;letter-spacing:.04em}
+.dcap{font-family:var(--label);font-size:12px;letter-spacing:.24em;fill:#5b5445;text-transform:uppercase}
+.stale svg{filter:grayscale(.9);opacity:.5}
+.stamp{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-8deg);border:3px double var(--l3);color:var(--l3);font-family:var(--label);letter-spacing:.2em;text-transform:uppercase;font-size:clamp(16px,3vw,24px);padding:6px 16px;opacity:0;transition:opacity .4s;background:rgba(247,241,227,.7);pointer-events:none;text-align:center;line-height:1.25}
+.stale .stamp{opacity:.95}
+.bignum{font-family:var(--mono);font-weight:500;font-size:clamp(66px,10.5vw,108px);line-height:1;letter-spacing:-.04em;margin:6px 0 4px}
+.bignum small{font-size:.26em;letter-spacing:0;color:var(--ink2);margin-left:8px}
+.badge{display:inline-block;font-family:var(--label);letter-spacing:.22em;text-transform:uppercase;font-weight:600;color:#fff;padding:5px 16px;font-size:19px;background:#777;transition:background .4s}
+.action{font-family:var(--display);font-style:italic;font-size:27px;line-height:1.25;margin:12px 0 0}
+.note{font-size:15px;color:var(--ink2);margin:10px 0 0}
+.dim{transition:opacity .4s}
+.stale .dim{opacity:.5}
+
+/* ---------- LCD mirror ---------- */
+.lcdcase{margin-top:20px;background:#2a2822;padding:14px 14px 12px;border:1px solid var(--ink)}
+.lcdcap{font-family:var(--label);letter-spacing:.2em;text-transform:uppercase;font-size:12px;color:#b9b19c;margin-bottom:8px;display:flex;justify-content:space-between}
+.lcd{position:relative;overflow:hidden;background:linear-gradient(#b5c496,#a2b483);padding:12px 14px;font-family:var(--mono);font-weight:500;font-size:clamp(14px,2.6vw,21px);color:#1f2a16;letter-spacing:.14em;line-height:1.55;white-space:pre;border:2px solid #14120e;box-shadow:inset 0 0 14px rgba(0,0,0,.25);transition:opacity .4s}
+.lcd::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 1px,transparent 1px 3px);pointer-events:none}
+.lcd .bar{position:absolute;top:0;bottom:0;left:-14%;width:12%;background:#1f2a16;opacity:0}
+.lcd.sweep .bar{animation:sweep .45s linear}
+@keyframes sweep{0%{left:-14%;opacity:.9}100%{left:104%;opacity:.9}}
+.stale .lcd{opacity:.4}
+
+/* ---------- metrics ---------- */
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:980px){.grid4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.grid4{grid-template-columns:1fr}}
+.metric .name{font-family:var(--display);font-size:25px;font-weight:600;margin:8px 0 0}
+.metric .val{font-family:var(--mono);font-size:42px;font-weight:500;margin:4px 0 2px;letter-spacing:-.03em}
+.metric .val small{font-size:15px;color:var(--ink2);letter-spacing:0;margin-left:4px}
+.metric .trend{font-family:var(--mono);font-size:13px;color:var(--ink2);min-height:20px}
+.metric .wt{font-family:var(--label);letter-spacing:.1em;text-transform:uppercase;font-size:13px;color:var(--ink2);border-top:1px solid rgba(29,26,20,.3);margin-top:10px;padding-top:8px}
+.tag{display:inline-block;font-family:var(--label);font-size:12px;letter-spacing:.18em;text-transform:uppercase;border:1px solid var(--ink);padding:1px 8px}
+.tag.m{background:var(--ink);color:var(--paper)}
+.tag.c{background:var(--brass);color:#fff;border-color:var(--brass)}
+.stale .metric .val{opacity:.55}
+
+/* ---------- station panel ---------- */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:880px){.two{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:0 18px;margin:0}
+.kv dt{font-family:var(--label);letter-spacing:.16em;text-transform:uppercase;font-size:13.5px;color:var(--ink2);padding:8px 0;border-bottom:1px dotted rgba(29,26,20,.4)}
+.kv dd{margin:0;font-family:var(--mono);font-size:14.5px;padding:8px 0;border-bottom:1px dotted rgba(29,26,20,.4);text-align:right}
+.flow{display:grid;gap:0;margin:0;padding:0;list-style:none;counter-reset:s}
+.flow li{counter-increment:s;padding:9px 0 9px 44px;position:relative;border-bottom:1px dotted rgba(29,26,20,.4);font-size:16px}
+.flow li::before{content:counter(s);position:absolute;left:0;top:7px;width:30px;height:30px;border:1px solid var(--ink);border-radius:50%;text-align:center;font-family:var(--label);font-size:15px;line-height:28px;background:var(--paper)}
+
+/* ---------- charts ---------- */
+.tabs{display:flex;gap:0;flex-wrap:wrap}
+.tabs button,.btn{font-family:var(--label);letter-spacing:.16em;text-transform:uppercase;font-size:14px;border:1px solid var(--ink);background:transparent;color:var(--ink);padding:7px 16px;cursor:pointer;margin-right:-1px}
+.tabs button.on{background:var(--ink);color:var(--paper)}
+.tabs button:hover:not(.on){background:var(--paper2)}
+.btn.primary{background:var(--oxblood);border-color:var(--oxblood);color:#fff;padding:10px 22px;margin:0}
+.btn.primary:hover{background:#5f1614}
+.btn.primary:disabled{opacity:.55;cursor:wait}
+.chartgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
+@media(max-width:880px){.chartgrid{grid-template-columns:1fr}}
+.chartgrid .wide{grid-column:1/-1}
+.ctitle{font-family:var(--display);font-size:23px;font-weight:600}
+.csub{font-size:14.5px;color:var(--ink2);margin:0 0 10px}
+.chartbox{position:relative;height:300px}
+.chartbox.short{height:200px}
+
+/* ---------- records ---------- */
+.tablewrap{max-height:430px;overflow:auto;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:13.5px}
+th{position:sticky;top:0;background:var(--paper2);font-family:var(--label);letter-spacing:.14em;text-transform:uppercase;font-size:13px;text-align:right;padding:9px 12px;border-bottom:1px solid var(--ink)}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 12px;text-align:right;border-bottom:1px dotted rgba(29,26,20,.35);white-space:nowrap}
+.chip{display:inline-block;padding:1px 9px;color:#fff;font-family:var(--label);letter-spacing:.14em;font-size:12px;text-transform:uppercase}
+.export{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;margin-top:18px}
+.export label{font-family:var(--label);letter-spacing:.16em;text-transform:uppercase;font-size:13px;color:var(--ink2);display:grid;gap:4px}
+.export input{font-family:var(--mono);font-size:14px;padding:8px 10px;border:1px solid var(--ink);background:var(--card);color:var(--ink)}
+.presets{display:flex}
+.msg{font-family:var(--mono);font-size:13.5px;color:var(--ink2)}
+
+/* ---------- method ---------- */
+.formula{font-family:var(--display);font-size:clamp(28px,5vw,52px);text-align:center;padding:22px 8px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);margin:6px 0 20px;font-weight:500}
+.formula b{color:var(--oxblood);font-weight:600}
+.formula i{font-style:italic}
+.wrow{display:grid;grid-template-columns:150px 1fr 56px;gap:14px;align-items:center;margin:11px 0;font-family:var(--label);letter-spacing:.1em;text-transform:uppercase;font-size:15px}
+.wbar{height:20px;border:1px solid var(--ink);background:var(--paper2);position:relative}
+.wbar i{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+.wrow:nth-child(2) .wbar i{background:var(--steel)}
+.wrow:nth-child(3) .wbar i{background:var(--oxblood)}
+.wrow:nth-child(4) .wbar i{background:var(--brass)}
+.wrow span:last-child{text-align:right;font-family:var(--mono)}
+.eq{font-family:var(--mono);font-size:13.5px;background:var(--paper2);border:1px solid var(--ink);padding:14px 16px;overflow-x:auto;line-height:1.7}
+.bands{width:100%;font-family:var(--body);font-size:16px}
+.bands th{font-size:13px;position:static}
+.bands td{white-space:normal;text-align:left;font-family:var(--body);font-size:16px;padding:10px 12px}
+.bands td:first-child{width:170px}
+.fine{font-size:15px;color:var(--ink2)}
+
+/* ---------- references / footer ---------- */
+.refs{font-size:15.5px;padding-left:22px}
+.refs li{margin:8px 0}
+.foot{margin:48px 0 0;border-top:3px double var(--ink);padding:18px 0 40px;font-family:var(--label);letter-spacing:.14em;text-transform:uppercase;font-size:13.5px;color:var(--ink2);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+/* ---------- landing ---------- */
+#landing{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.shutter{position:absolute;left:0;right:0;height:50.2%;background:#17140f;transition:transform 1.1s cubic-bezier(.77,0,.18,1)}
+.shutter.top{top:0}
+.shutter.bottom{bottom:0}
+.shutter::after{content:"";position:absolute;left:0;right:0;height:1px;background:#6b5b3a}
+.shutter.top::after{bottom:6px}
+.shutter.bottom::after{top:6px}
+#landing.open .shutter.top{transform:translateY(-100%)}
+#landing.open .shutter.bottom{transform:translateY(100%)}
+.landing-inner{position:relative;display:flex;align-items:center;gap:clamp(18px,5vw,56px);padding:20px;transition:opacity .5s}
+#landing.open .landing-inner{opacity:0}
+.thermo{height:min(52vh,380px);width:auto;flex:none}
+.tube{stroke-dasharray:720;stroke-dashoffset:720;animation:draw 1.5s .2s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.bulb{opacity:0;animation:fadein .5s 1.0s forwards}
+.merc{transform-box:fill-box;transform-origin:bottom;transform:scaleY(0);animation:rise 1.9s 1.1s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes rise{to{transform:scaleY(1)}}
+.tick{opacity:0;animation:fadein .35s forwards}
+@keyframes fadein{to{opacity:1}}
+.landing-text{color:#e9dec4}
+.landing-kicker{font-family:var(--label);letter-spacing:.34em;text-transform:uppercase;font-size:clamp(11px,1.6vw,14px);color:#a8946a;opacity:0;animation:fadein .8s .5s forwards}
+.landing-title{font-family:var(--display);font-weight:600;font-size:clamp(38px,9vw,92px);letter-spacing:.06em;margin:8px 0 6px;line-height:1}
+.landing-title span{display:inline-block;opacity:0;transform:translateY(16px);animation:letterIn .65s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes letterIn{to{opacity:1;transform:none}}
+.landing-title span:nth-child(n+5){color:#d98b6a}
+.landing-sub{font-family:var(--display);font-style:italic;font-size:clamp(17px,2.6vw,26px);color:#cdbf9f;opacity:0;animation:fadein .9s 2.5s forwards}
+.landing-bar{margin-top:26px;height:2px;background:#3a3325;width:min(320px,60vw)}
+.landing-bar i{display:block;height:100%;width:0;background:#c9a24e;animation:fill 3.4s .3s linear forwards}
+@keyframes fill{to{width:100%}}
+.skip{position:absolute;right:22px;bottom:18px;font-family:var(--label);letter-spacing:.24em;text-transform:uppercase;font-size:12px;color:#8d7d5a}
+
+@media (prefers-reduced-motion:reduce){
+  #landing{display:none}
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<noscript><div class="wrap"><div class="setup">This page needs JavaScript to show the live record.</div></div></noscript>
+
+<!-- ============== landing animation ============== -->
+<div id="landing" aria-hidden="true">
+  <div class="shutter top"></div>
+  <div class="shutter bottom"></div>
+  <div class="landing-inner">
+    <svg class="thermo" id="thermo" viewBox="0 0 120 360">
+      <path class="tube" d="M45 50 a15 15 0 0 1 30 0 V262 a34 34 0 1 1 -30 0 Z" fill="none" stroke="#d9cbab" stroke-width="3" stroke-linejoin="round"/>
+      <circle class="bulb" cx="60" cy="292.5" r="24" fill="#b3261e"/>
+      <rect class="merc" x="54" y="82" width="12" height="212" fill="#b3261e"/>
+    </svg>
+    <div class="landing-text">
+      <div class="landing-kicker">Environmental Science · Instrument Record</div>
+      <div class="landing-title" id="landingTitle">HEATSHIELD</div>
+      <div class="landing-sub">Wet Bulb Globe Temperature Station</div>
+      <div class="landing-bar"><i></i></div>
+    </div>
+  </div>
+  <div class="skip">Click to enter</div>
+</div>
+
+<div id="page">
+<div class="wrap">
+
+  <!-- ============== masthead ============== -->
+  <header class="mast">
+    <div class="mast-top">
+      <span>Station <span id="devName">HS-01</span></span>
+      <span id="mastDate">—</span>
+      <span id="mastClock">--:--:--</span>
+    </div>
+    <div class="mast-title">
+      <h1>Heat<em>Shield</em></h1>
+      <p>Wet Bulb Globe Temperature · Station Record</p>
+    </div>
+    <div class="mast-bottom">
+      <span class="lamp" id="lamp"><i></i><span id="lampText">Connecting…</span></span>
+      <span id="mastLoc">Position —</span>
+      <span>Live · same values as the device display</span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden><span id="banText"></span></div>
+  <div class="setup" id="setupBox" hidden>
+    <b class="k">Database not connected.</b> Open <code>config.js</code> in the site folder, replace every <code>PASTE_…</code>
+    value with your Firebase web-app settings, then upload the site again.
+  </div>
+
+  <!-- ============== I. live reading ============== -->
+  <section class="sec" id="live">
+    <div class="secHead"><h2>The present reading</h2><span class="secnum">I · Live</span></div>
+    <div class="hero" id="heroBlock">
+      <div class="card dialwrap" id="dialCard">
+        <div class="kicker">WBGT dial · bands follow the reference values below</div>
+        <svg id="dialSvg" viewBox="0 -14 420 250" role="img" aria-label="WBGT dial"></svg>
+        <div class="stamp" id="stamp">Offline<br>last record</div>
+      </div>
+      <div class="card" id="readCard">
+        <div class="kicker">Wet bulb globe temperature</div>
+        <div class="bignum dim"><span id="bigWbgt">--.-</span><small>°C</small></div>
+        <span class="badge" id="badge">—</span>
+        <p class="action dim" id="action">Waiting for the first record from the device…</p>
+        <p class="note" id="statusNote"></p>
+        <div class="lcdcase">
+          <div class="lcdcap"><span>Device display · mirror</span><span id="lcdPage">1 / 3</span></div>
+          <div class="lcd" id="lcd"><div class="bar"></div><span id="lcd0">                </span>
+<span id="lcd1">                </span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== II. instruments ============== -->
+  <section class="sec" id="instruments">
+    <div class="secHead"><h2>Instruments</h2><span class="secnum">II · Readings</span></div>
+    <div class="grid4" id="metrics">
+      <div class="card metric">
+        <span class="tag">Online</span>
+        <div class="name">Air temperature</div>
+        <div class="val"><span id="mAirV">--.-</span><small>°C</small></div>
+        <div class="trend" id="mAirT"></div>
+        <div class="wt">Dry-bulb · weight 0.1 in WBGT</div>
+      </div>
+      <div class="card metric">
+        <span class="tag m">Measured</span>
+        <div class="name">Globe temperature</div>
+        <div class="val"><span id="mGlV">--.-</span><small>°C</small></div>
+        <div class="trend" id="mGlT"></div>
+        <div class="wt">Black globe · weight 0.2 in WBGT</div>
+      </div>
+      <div class="card metric">
+        <span class="tag c">Calculated</span>
+        <div class="name">Wet-bulb temperature</div>
+        <div class="val"><span id="mWetV">--.-</span><small>°C</small></div>
+        <div class="trend" id="mWetT"></div>
+        <div class="wt">Natural wet-bulb · weight 0.7 in WBGT</div>
+      </div>
+      <div class="card metric">
+        <span class="tag">Online</span>
+        <div class="name">Relative humidity</div>
+        <div class="val"><span id="mRhV">--</span><small>%</small></div>
+        <div class="trend" id="mRhT"></div>
+        <div class="wt">Sets the wet-bulb value</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== III. station ============== -->
+  <section class="sec" id="station">
+    <div class="secHead"><h2>The station</h2><span class="secnum">III · Device &amp; data path</span></div>
+    <div class="two">
+      <div class="card">
+        <div class="kicker">Device status</div>
+        <dl class="kv">
+          <dt>State</dt><dd id="stState">—</dd>
+          <dt>Last signal</dt><dd id="stLast">—</dd>
+          <dt>Signal age</dt><dd id="stAge">—</dd>
+          <dt>Wi-Fi strength</dt><dd id="stWifi">—</dd>
+          <dt>Online data age</dt><dd id="stWeb">—</dd>
+          <dt>Position</dt><dd id="stLoc">—</dd>
+          <dt>Device</dt><dd id="stDev">—</dd>
+        </dl>
+        <p class="fine" style="margin:12px 0 0">The device sends every new reading as soon as it is calculated. If no signal arrives for 15 seconds the station is shown as offline and the last record is kept on screen.</p>
+      </div>
+      <div class="card">
+        <div class="kicker">From sensor to this page</div>
+        <ol class="flow">
+          <li><b>Globe probe</b> — a DS18B20 inside a black globe measures the radiant heat.</li>
+          <li><b>Online data</b> — air temperature and humidity for the site are fetched from Open-Meteo every ten minutes.</li>
+          <li><b>ESP32</b> — calculates the wet-bulb temperature and WBGT, sets the alert level and sounds the buzzer.</li>
+          <li><b>Display &amp; database</b> — the same result goes to the device LCD and, within a moment, to the realtime database.</li>
+          <li><b>This page</b> — reads the database live; one record per minute is kept for the charts and the Excel export.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== IV. charts ============== -->
+  <section class="sec" id="charts">
+    <div class="secHead">
+      <h2>Charts</h2>
+      <div class="tabs" id="rangeTabs">
+        <button data-r="1h">1 hour</button><button data-r="6h">6 hours</button><button data-r="24h" class="on">24 hours</button><button data-r="7d">7 days</button>
+      </div>
+    </div>
+    <p class="msg" id="chartNote"></p>
+    <div class="chartgrid">
+      <div class="card wide">
+        <div class="ctitle">WBGT over time</div>
+        <p class="csub">Shaded zones are the reference bands: normal, caution, high risk and extreme.</p>
+        <div class="chartbox"><canvas id="cWbgt"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">Temperatures</div>
+        <p class="csub">Air (online), globe (measured) and wet-bulb (calculated), °C.</p>
+        <div class="chartbox"><canvas id="cTemps"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">Relative humidity</div>
+        <p class="csub">Online source, per cent.</p>
+        <div class="chartbox"><canvas id="cHum"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">What the WBGT is made of</div>
+        <p class="csub">Latest reading: each part is already multiplied by its weight, °C.</p>
+        <div class="chartbox short"><canvas id="cComp"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">Time in each level</div>
+        <p class="csub">Share of the records in the chosen period.</p>
+        <div class="chartbox short"><canvas id="cDist"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== V. records ============== -->
+  <section class="sec" id="records">
+    <div class="secHead"><h2>Records &amp; export</h2><span class="secnum">V · Database</span></div>
+    <p>One record is saved every minute while the station is online. The table shows the newest records of the chosen chart period (<span id="recCount">0</span> in total). To keep an older period, pick the dates and download it as an Excel sheet.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Date &amp; time</th><th>Air °C</th><th>Globe °C</th><th>Wet-bulb °C</th><th>RH %</th><th>WBGT °C</th><th>Level</th></tr></thead>
+        <tbody id="recBody"><tr><td colspan="7" style="text-align:center;padding:18px">No records yet.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="export">
+      <label>From<input type="datetime-local" id="expFrom"></label>
+      <label>To<input type="datetime-local" id="expTo"></label>
+      <div class="presets" id="presets">
+        <button class="btn" data-pre="24h">Last 24 h</button><button class="btn" data-pre="7d">Last 7 days</button><button class="btn" data-pre="30d">Last 30 days</button>
+      </div>
+      <button class="btn primary" id="expBtn">Download Excel (.xlsx)</button>
+      <span class="msg" id="expMsg"></span>
+    </div>
+  </section>
+
+  <!-- ============== VI. method ============== -->
+  <section class="sec" id="method">
+    <div class="secHead"><h2>How WBGT is worked out</h2><span class="secnum">VI · Method</span></div>
+    <p>The wet bulb globe temperature is a heat-stress index of the <em>surroundings</em>. It combines three things the body feels at once: how hot the air is, how much sweat can evaporate, and how much heat arrives as radiation from the sun. Outdoors, with sunshine, the standard weighting is:</p>
+    <div class="formula">WBGT = <b>0.7</b> · <i>T</i><sub>nwb</sub> + <b>0.2</b> · <i>T</i><sub>g</sub> + <b>0.1</b> · <i>T</i><sub>db</sub></div>
+    <div class="two">
+      <div>
+        <div class="wrow"><span>Weight in WBGT</span><span></span><span></span></div>
+        <div class="wrow"><span>T<sub>nwb</sub> wet-bulb</span><div class="wbar"><i style="width:70%"></i></div><span>70 %</span></div>
+        <div class="wrow"><span>T<sub>g</sub> globe</span><div class="wbar"><i style="width:20%"></i></div><span>20 %</span></div>
+        <div class="wrow"><span>T<sub>db</sub> air</span><div class="wbar"><i style="width:10%"></i></div><span>10 %</span></div>
+        <p class="fine"><b>T<sub>nwb</sub></b> — natural wet-bulb temperature: the cooling sweat can achieve, which depends on humidity. <b>T<sub>g</sub></b> — black-globe temperature: radiant heat from sunlight and hot surfaces. <b>T<sub>db</sub></b> — dry-bulb, the ordinary air temperature.</p>
+      </div>
+      <div>
+        <div class="kicker" style="margin-bottom:8px">Wet-bulb from air temperature and humidity (Stull, 2011)</div>
+        <div class="eq">T<sub>w</sub> = T·atan[0.151977·(RH + 8.313659)<sup>½</sup>]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ atan(T + RH) − atan(RH − 1.676331)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ 0.00391838·RH<sup>3/2</sup>·atan(0.023101·RH)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;− 4.686035<br>
+<span style="color:var(--ink2)">T = air temperature in °C, RH = relative humidity in %</span></div>
+        <p class="fine">Where each value comes from: the globe temperature is <b>measured</b> by the station; air temperature and humidity are <b>online</b> values for the station’s coordinates; the wet-bulb temperature and WBGT are <b>calculated</b>. Online values are regional model data, so the result is an estimate rather than the reading of a calibrated WBGT meter.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size:30px;margin:30px 0 10px">Reading the scale</h3>
+    <table class="bands">
+      <thead><tr><th>Level</th><th style="text-align:left">WBGT</th><th style="text-align:left">Reference basis</th><th style="text-align:left">Action</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip" style="background:var(--l0)">Normal</span></td><td>below 25.0 °C</td><td>Under the ACGIH action limit for moderate work</td><td>Continue work</td></tr>
+        <tr><td><span class="chip" style="background:var(--l1)">Caution</span></td><td>25.0 – 27.9 °C</td><td>At or above the action limit (unacclimatised workers) for continuous moderate work</td><td>Stay hydrated</td></tr>
+        <tr><td><span class="chip" style="background:var(--l2)">High risk</span></td><td>28.0 – 31.4 °C</td><td>At or above the ACGIH TLV for continuous moderate work (acclimatised workers)</td><td>Take regular breaks in the shade</td></tr>
+        <tr><td><span class="chip" style="background:var(--l3)">Extreme</span></td><td>31.5 °C and above</td><td>At or above the TLV for moderate work when only 0–25 % of the hour is work</td><td>Stop work, seek shade and water</td></tr>
+      </tbody>
+    </table>
+    <p class="fine">The bands use the ACGIH screening values for <em>moderate</em> work. WBGT itself does not depend on the person; the worker’s task, fitness and clothing only decide which limit applies. This station is a screening tool for a student project, not a medical or safety-certified instrument.</p>
+  </section>
+
+  <!-- ============== VII. references ============== -->
+  <section class="sec" id="references">
+    <div class="secHead"><h2>References</h2><span class="secnum">VII · Standards &amp; sources</span></div>
+    <ol class="refs">
+      <li>ACGIH. <em>TLVs and BEIs</em> — heat stress and strain, WBGT screening criteria (2023 edition), as reproduced by the Canadian Centre for Occupational Health and Safety, <em>Temperature Conditions — Hot</em>. <a href="https://ccohs.gc.ca/oshanswers/phys_agents/max_temp.html" target="_blank" rel="noopener">ccohs.gc.ca/oshanswers/phys_agents/max_temp.html</a></li>
+      <li>NIOSH (2016). <em>Criteria for a Recommended Standard: Occupational Exposure to Heat and Hot Environments.</em> DHHS (NIOSH) Publication No. 2016-106. U.S. Centers for Disease Control and Prevention.</li>
+      <li>NIOSH. <em>Heat Stress — Workplace Recommendations.</em> <a href="https://www.cdc.gov/niosh/heat-stress/recommendations/index.html" target="_blank" rel="noopener">cdc.gov/niosh/heat-stress/recommendations</a></li>
+      <li>CDC. <em>Evaluation of Occupational Exposure Limits for Heat Stress in Outdoor Workers — United States, 2011–2016.</em> Morbidity and Mortality Weekly Report 67(26). <a href="https://www.cdc.gov/mmwr/volumes/67/wr/mm6726a1.htm" target="_blank" rel="noopener">cdc.gov/mmwr/volumes/67/wr/mm6726a1.htm</a></li>
+      <li>ISO 7243:2017. <em>Ergonomics of the thermal environment — Assessment of heat stress using the WBGT (wet bulb globe temperature) index.</em> International Organization for Standardization.</li>
+      <li>Stull, R. (2011). Wet-bulb temperature from relative humidity and air temperature. <em>Journal of Applied Meteorology and Climatology</em>, 50(11), 2267–2269. doi:10.1175/JAMC-D-11-0143.1</li>
+      <li>Open-Meteo. Free weather API — air temperature and relative humidity (2 m). <a href="https://open-meteo.com" target="_blank" rel="noopener">open-meteo.com</a></li>
+    </ol>
+  </section>
+
+  <footer class="foot">
+    <span>HeatShield · Student project · Environmental Science</span>
+    <span>Screening tool — not a medical device</span>
+  </footer>
+
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* settings come from config.js (loaded just before this script) */
+var CFG = window.HEATSHIELD || {};
+var FIREBASE_CONFIG = CFG.firebase || {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
+  databaseURL: "PASTE_DATABASE_URL",
+  projectId: "PASTE_PROJECT_ID",
+  appId: "PASTE_APP_ID"
+};
+var DEVICE_ID = CFG.deviceId || 'HS-01';
+var OFFLINE_AFTER_MS = 15000;      // no new signal for this long = device offline
+
+var T_CAUTION = 25.0, T_HIGH = 28.0, T_EXTREME = 31.5;
+var LEVELS = [
+  { name: 'NORMAL',    color: '#3e6b48', a1: 'Continue work', a2: 'Conditions OK',    full: 'Continue work — conditions are within the reference limit.' },
+  { name: 'CAUTION',   color: '#c99a1b', a1: 'Stay hydrated', a2: 'Drink often',      full: 'Stay hydrated — drink water often.' },
+  { name: 'HIGH RISK', color: '#c0541b', a1: 'Take regular',  a2: 'breaks in shade',  full: 'Take regular breaks in the shade.' },
+  { name: 'EXTREME',   color: '#8b1a1a', a1: 'STOP WORK',     a2: 'Seek shade+water', full: 'Stop work — seek shade and water.' }
+];
+var RANGES = { '1h': 3600e3, '6h': 6 * 3600e3, '24h': 24 * 3600e3, '7d': 7 * 24 * 3600e3 };
+var REFS_TEXT = [
+  'ACGIH TLVs and BEIs - heat stress and strain, WBGT screening criteria (2023), via CCOHS: https://ccohs.gc.ca/oshanswers/phys_agents/max_temp.html',
+  'NIOSH (2016). Criteria for a Recommended Standard: Occupational Exposure to Heat and Hot Environments. DHHS (NIOSH) Publication No. 2016-106.',
+  'NIOSH. Heat Stress - Workplace Recommendations: https://www.cdc.gov/niosh/heat-stress/recommendations/index.html',
+  'CDC MMWR 67(26). Evaluation of Occupational Exposure Limits for Heat Stress in Outdoor Workers, United States, 2011-2016.',
+  'ISO 7243:2017. Ergonomics of the thermal environment - Assessment of heat stress using the WBGT index.',
+  'Stull, R. (2011). Wet-bulb temperature from relative humidity and air temperature. J. Appl. Meteorol. Climatol. 50(11), 2267-2269.',
+  'Open-Meteo. Free weather API: https://open-meteo.com'
+];
+
+/* ---------- helpers ---------- */
+function $(id) { return document.getElementById(id); }
+function isNum(v) { return typeof v === 'number' && isFinite(v); }
+function f1(v) { return isNum(v) ? v.toFixed(1) : '--'; }
+function f0(v) { return isNum(v) ? String(Math.round(v)) : '--'; }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function clock(ms) { var d = new Date(ms); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()); }
+function dateTime(ms) {
+  var d = new Date(ms);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + clock(ms);
+}
+function humanAge(ms) {
+  var s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return s + ' s';
+  var m = Math.floor(s / 60);
+  if (m < 60) return m + ' min';
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + ' h ' + (m % 60) + ' min';
+  return Math.floor(h / 24) + ' d ' + (h % 24) + ' h';
+}
+function levelOf(w) { return w >= T_EXTREME ? 3 : w >= T_HIGH ? 2 : w >= T_CAUTION ? 1 : 0; }
+function levelFromRow(r) {
+  if (r && isNum(r.level)) return Math.max(0, Math.min(3, r.level | 0));
+  if (r && isNum(r.wbgt)) return levelOf(r.wbgt);
+  return -1;
+}
+function toLocalInput(ms) {
+  var d = new Date(ms);
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+function pad16(s) { s = String(s); while (s.length < 16) s += ' '; return s.slice(0, 16); }
+
+/* ---------- state ---------- */
+var db = null, serverOffset = 0, offsetReady = false, fbConnected = false;
+var latest = null;
+var rangeKey = '24h', histQuery = null, histRows = [];
+var charts = {};
+var chartTimer = null;
+
+function serverNow() { return Date.now() + serverOffset; }
+
+function deviceState() {
+  if (!fbConnected) return 'link';
+  if (!latest || !isNum(latest.ts)) return 'nodata';
+  return (serverNow() - latest.ts) <= OFFLINE_AFTER_MS ? 'online' : 'offline';
+}
+function valuesTs() { return latest ? (isNum(latest.wts) ? latest.wts : latest.ts) : null; }
+
+/* =====================================================================================
+   landing animation
+   ===================================================================================== */
+function runLanding() {
+  var L = $('landing');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!L) return;
+  if (reduce) { L.remove(); return; }
+
+  var title = $('landingTitle'), txt = 'HEATSHIELD', i, h = '';
+  for (i = 0; i < txt.length; i++) {
+    h += '<span style="animation-delay:' + (1.5 + i * 0.09).toFixed(2) + 's">' + txt[i] + '</span>';
+  }
+  title.innerHTML = h;
+
+  var svg = $('thermo'), ticks = '';
+  for (i = 0; i < 11; i++) {
+    var y = 84 + i * 20.6, long = (i % 5 === 0);
+    ticks += '<line class="tick" x1="82" y1="' + y.toFixed(1) + '" x2="' + (long ? 98 : 91) + '" y2="' + y.toFixed(1) +
+             '" stroke="#d9cbab" stroke-width="' + (long ? 2 : 1.2) + '" style="animation-delay:' + (0.6 + i * 0.12).toFixed(2) + 's"/>';
+  }
+  svg.insertAdjacentHTML('beforeend', ticks);
+
+  document.body.style.overflow = 'hidden';
+  var done = false;
+  function openLanding() {
+    if (done) return;
+    done = true;
+    L.classList.add('open');
+    setTimeout(function () { L.remove(); document.body.style.overflow = ''; }, 1300);
+  }
+  setTimeout(openLanding, 4000);
+  L.addEventListener('click', openLanding);
+  window.addEventListener('keydown', openLanding, { once: true });
+}
+
+/* =====================================================================================
+   WBGT dial
+   ===================================================================================== */
+var G = { cx: 210, cy: 210, min: 15, max: 40 };
+function angleFor(v) {
+  var t = (Math.min(Math.max(v, G.min), G.max) - G.min) / (G.max - G.min);
+  return Math.PI * (1 - t);
+}
+function polar(a, r) { return [G.cx + r * Math.cos(a), G.cy - r * Math.sin(a)]; }
+function arcPath(v0, v1, ro, ri) {
+  var a0 = angleFor(v0), a1 = angleFor(v1);
+  var p0 = polar(a0, ro), p1 = polar(a1, ro), p2 = polar(a1, ri), p3 = polar(a0, ri);
+  return 'M' + p0[0].toFixed(2) + ',' + p0[1].toFixed(2) +
+         ' A' + ro + ',' + ro + ' 0 0 1 ' + p1[0].toFixed(2) + ',' + p1[1].toFixed(2) +
+         ' L' + p2[0].toFixed(2) + ',' + p2[1].toFixed(2) +
+         ' A' + ri + ',' + ri + ' 0 0 0 ' + p3[0].toFixed(2) + ',' + p3[1].toFixed(2) + ' Z';
+}
+var needleDeg = 180, needleRaf = null;
+function buildDial() {
+  var svg = $('dialSvg'), h = '', v, p, q;
+  var bands = [[15, 25, '#3e6b48'], [25, 28, '#c99a1b'], [28, 31.5, '#c0541b'], [31.5, 40, '#8b1a1a']];
+  bands.forEach(function (b) {
+    h += '<path d="' + arcPath(b[0], b[1], 170, 128) + '" fill="' + b[2] + '" stroke="#f7f1e3" stroke-width="2"/>';
+  });
+  for (v = 15; v <= 40; v++) {
+    var major = (v % 5 === 0);
+    p = polar(angleFor(v), 172); q = polar(angleFor(v), major ? 188 : 180);
+    h += '<line x1="' + p[0].toFixed(1) + '" y1="' + p[1].toFixed(1) + '" x2="' + q[0].toFixed(1) + '" y2="' + q[1].toFixed(1) +
+         '" stroke="#1d1a14" stroke-width="' + (major ? 1.6 : 0.8) + '"/>';
+  }
+  [15, 20, 25, 28, 31.5, 35, 40].forEach(function (lab) {
+    var t = polar(angleFor(lab), 206);
+    h += '<text class="dl" x="' + t[0].toFixed(1) + '" y="' + t[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle">' + lab + '</text>';
+  });
+  h += '<g id="needle" transform="rotate(-180 210 210)"><polygon points="206,204 206,216 62,210" fill="#1d1a14"/></g>';
+  h += '<circle id="hub" cx="210" cy="210" r="12" fill="#1d1a14"/><circle cx="210" cy="210" r="4.5" fill="#f7f1e3"/>';
+  h += '<text class="dcap" x="210" y="236" text-anchor="middle">Degrees Celsius · WBGT</text>';
+  svg.innerHTML = h;
+}
+function setNeedle(value) {
+  var target = angleFor(value) * 180 / Math.PI;
+  if (Math.abs(target - needleDeg) < 0.05) return;
+  var from = needleDeg, t0 = performance.now(), dur = 700;
+  cancelAnimationFrame(needleRaf);
+  function step(t) {
+    var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    needleDeg = from + (target - from) * e;
+    var n = $('needle');
+    if (n) n.setAttribute('transform', 'rotate(' + (-needleDeg).toFixed(2) + ' 210 210)');
+    if (k < 1) needleRaf = requestAnimationFrame(step);
+  }
+  needleRaf = requestAnimationFrame(step);
+}
+
+/* =====================================================================================
+   device display mirror (same three screens as the LCD)
+   ===================================================================================== */
+var lcdPage = 0;
+function lcdContent(page) {
+  var L = latest;
+  if (!L || !isNum(L.wbgt)) {
+    var s = L && L.status === 'fault' ? ['SENSOR FAULT', 'Globe probe'] : ['Waiting for data', 'Fetching online'];
+    return s;
+  }
+  var lv = levelFromRow(L), M = LEVELS[lv];
+  if (page === 0) return ['WBGT ' + f1(L.wbgt) + ' C', M.name];
+  if (page === 1) return [M.a1, M.a2];
+  return ['Air ' + f1(L.tdb) + ' Gl ' + f1(L.tg), 'Wet ' + f1(L.tnwb) + ' RH ' + f0(L.rh) + '%'];
+}
+function renderLcd() {
+  var c = lcdContent(lcdPage);
+  $('lcd0').textContent = pad16(c[0]);
+  $('lcd1').textContent = pad16(c[1]);
+  $('lcdPage').textContent = (lcdPage + 1) + ' / 3';
+}
+function nextLcdPage() {
+  lcdPage = (lcdPage + 1) % 3;
+  var el = $('lcd');
+  el.classList.remove('sweep');
+  void el.offsetWidth;
+  el.classList.add('sweep');
+  setTimeout(renderLcd, 220);
+}
+
+/* =====================================================================================
+   rendering
+   ===================================================================================== */
+function trend(key, cur, unit) {
+  if (!isNum(cur) || !histRows.length || !latest || !isNum(latest.ts)) return '';
+  var target = latest.ts - 10 * 60 * 1000, best = null, bd = Infinity, i, d;
+  for (i = 0; i < histRows.length; i++) {
+    if (!isNum(histRows[i][key])) continue;
+    d = Math.abs(histRows[i].ts - target);
+    if (d < bd) { bd = d; best = histRows[i]; }
+  }
+  if (!best || bd > 6 * 60 * 1000) return '';
+  var diff = cur - best[key];
+  if (Math.abs(diff) < 0.05) return '■ steady · 10 min';
+  return (diff > 0 ? '▲ +' : '▼ ') + diff.toFixed(1) + ' ' + unit + ' · 10 min';
+}
+
+function renderValues() {
+  var L = latest, has = !!(L && isNum(L.wbgt));
+  var lv = has ? levelFromRow(L) : -1, M = lv >= 0 ? LEVELS[lv] : null;
+
+  $('bigWbgt').textContent = has ? f1(L.wbgt) : '--.-';
+  var b = $('badge');
+  b.textContent = M ? M.name : '—';
+  b.style.background = M ? M.color : '#777';
+  $('action').textContent = M ? M.full : 'Waiting for the first record from the device…';
+  if (has) setNeedle(L.wbgt);
+
+  var note = '';
+  if (L && L.status === 'waiting') note = 'The device is on and waiting for the online air temperature and humidity.';
+  else if (L && L.status === 'fault') note = 'The device is on, but its globe probe is not reading.';
+  $('statusNote').textContent = note;
+
+  $('mAirV').textContent = f1(has ? L.tdb : NaN);
+  $('mGlV').textContent = f1(has ? L.tg : NaN);
+  $('mWetV').textContent = f1(has ? L.tnwb : NaN);
+  $('mRhV').textContent = f0(has ? L.rh : NaN);
+  $('mAirT').textContent = has ? trend('tdb', L.tdb, '°C') : '';
+  $('mGlT').textContent = has ? trend('tg', L.tg, '°C') : '';
+  $('mWetT').textContent = has ? trend('tnwb', L.tnwb, '°C') : '';
+  $('mRhT').textContent = has ? trend('rh', L.rh, '%') : '';
+
+  if (L) {
+    $('devName').textContent = DEVICE_ID;
+    if (isNum(L.lat) && isNum(L.lon)) {
+      var pos = Math.abs(L.lat).toFixed(4) + '° ' + (L.lat >= 0 ? 'N' : 'S') + ' · ' + Math.abs(L.lon).toFixed(4) + '° ' + (L.lon >= 0 ? 'E' : 'W');
+      $('mastLoc').textContent = 'Position ' + pos;
+      $('stLoc').textContent = pos;
+    }
+    $('stDev').textContent = DEVICE_ID + (L.fw ? ' · firmware ' + L.fw : '');
+  }
+  renderLcd();
+  renderComposition();
+}
+
+function wifiQuality(r) {
+  if (!isNum(r)) return '—';
+  var q = r >= -60 ? 'excellent' : r >= -70 ? 'good' : r >= -80 ? 'fair' : 'weak';
+  return r + ' dBm · ' + q;
+}
+
+function renderStatus() {
+  var st = deviceState();
+  var lamp = $('lamp');
+  lamp.className = 'lamp ' + (st === 'online' ? 'on' : st === 'offline' ? 'off' : '');
+  $('lampText').textContent = { online: 'Device online', offline: 'Device offline', link: 'Reconnecting…', nodata: 'Awaiting first record' }[st];
+
+  var hasData = !!(latest && isNum(latest.wbgt));
+  var stale = hasData && st !== 'online';
+  $('dialCard').classList.toggle('stale', stale);
+  $('readCard').classList.toggle('stale', stale);
+  $('metrics').classList.toggle('stale', stale);
+  $('stamp').innerHTML = st === 'offline' ? 'Offline<br>last record' : 'No link<br>last record';
+
+  var ban = $('banner'), vts = valuesTs();
+  if (st === 'offline') {
+    ban.hidden = false; ban.className = 'banner red';
+    $('banText').innerHTML = '<b class="k">Device offline.</b> No signal has arrived since <b>' + esc(dateTime(latest.ts)) +
+      '</b> (' + esc(humanAge(serverNow() - latest.ts)) + ' ago). The values on this page are the <b>last recorded readings</b>' +
+      (vts ? ' from ' + esc(dateTime(vts)) : '') + ' and are <b>out of date</b> — do not use them to judge current conditions.';
+  } else if (st === 'link') {
+    ban.hidden = false; ban.className = 'banner';
+    $('banText').innerHTML = '<b class="k">No connection to the database.</b> This page is reconnecting. What you see may be old.';
+  } else if (st === 'online' && latest && latest.status && latest.status !== 'ok' && vts) {
+    ban.hidden = false; ban.className = 'banner';
+    $('banText').innerHTML = '<b class="k">Device online, measuring paused.</b> ' +
+      (latest.status === 'fault' ? 'The globe probe is not reading.' : 'Waiting for the online air temperature and humidity.') +
+      ' The figures shown are the last valid record from <b>' + esc(dateTime(vts)) + '</b> (' + esc(humanAge(serverNow() - vts)) + ' ago).';
+  } else {
+    ban.hidden = true;
+  }
+
+  $('stState').textContent = { online: 'ONLINE', offline: 'OFFLINE', link: 'LINK LOST', nodata: 'NO DATA' }[st];
+  if (latest && isNum(latest.ts)) {
+    $('stLast').textContent = dateTime(latest.ts);
+    $('stAge').textContent = humanAge(serverNow() - latest.ts);
+    $('stWifi').textContent = wifiQuality(latest.rssi);
+    if (isNum(latest.webAge)) $('stWeb').textContent = humanAge(latest.webAge * 1000 + (serverNow() - latest.ts)) + ' ago';
+    else $('stWeb').textContent = '—';
+  }
+}
+
+function updateClock() {
+  var now = new Date(serverNow());
+  $('mastClock').textContent = clock(now.getTime());
+  $('mastDate').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/* =====================================================================================
+   charts
+   ===================================================================================== */
+var bandPlugin = {
+  id: 'bands',
+  beforeDatasetsDraw: function (chart) {
+    var ctx = chart.ctx, a = chart.chartArea, y = chart.scales.y;
+    var defs = [[-Infinity, T_CAUTION, '#3e6b48', 0.10], [T_CAUTION, T_HIGH, '#c99a1b', 0.17],
+                [T_HIGH, T_EXTREME, '#c0541b', 0.17], [T_EXTREME, Infinity, '#8b1a1a', 0.17]];
+    ctx.save();
+    defs.forEach(function (d) {
+      var yTop = d[1] === Infinity ? a.top : y.getPixelForValue(d[1]);
+      var yBot = d[0] === -Infinity ? a.bottom : y.getPixelForValue(d[0]);
+      var t = Math.max(a.top, Math.min(yTop, yBot)), b = Math.min(a.bottom, Math.max(yTop, yBot));
+      if (b > t) { ctx.globalAlpha = d[3]; ctx.fillStyle = d[2]; ctx.fillRect(a.left, t, a.right - a.left, b - t); }
+    });
+    ctx.restore();
+  }
+};
+
+function initCharts() {
+  if (!window.Chart) return;
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#5b5445';
+  var grid = { color: 'rgba(29,26,20,.12)' };
+  var tip = { backgroundColor: '#f7f1e3', titleColor: '#1d1a14', bodyColor: '#1d1a14', borderColor: '#1d1a14', borderWidth: 1, cornerRadius: 0 };
+  var base = { responsive: true, maintainAspectRatio: false, animation: { duration: 300 }, interaction: { mode: 'index', intersect: false } };
+
+  charts.wbgt = new Chart($('cWbgt'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'WBGT (°C)', data: [], borderColor: '#1d1a14', backgroundColor: '#1d1a14', borderWidth: 2.2, pointRadius: 0, tension: 0.25, spanGaps: true }] },
+    options: Object.assign({}, base, {
+      scales: { x: { grid: grid, ticks: { maxTicksLimit: 8, maxRotation: 0 } }, y: { grid: grid, suggestedMin: 20, suggestedMax: 34, title: { display: true, text: '°C' } } },
+      plugins: { legend: { display: false }, tooltip: tip }
+    }),
+    plugins: [bandPlugin]
+  });
+
+  charts.temps = new Chart($('cTemps'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Air (online)', data: [], borderColor: '#9a6b1f', backgroundColor: '#9a6b1f', borderWidth: 1.8, pointRadius: 0, tension: 0.25, spanGaps: true },
+      { label: 'Globe (measured)', data: [], borderColor: '#7a1f1d', backgroundColor: '#7a1f1d', borderWidth: 1.8, pointRadius: 0, tension: 0.25, spanGaps: true },
+      { label: 'Wet-bulb (calculated)', data: [], borderColor: '#27475f', backgroundColor: '#27475f', borderWidth: 1.8, pointRadius: 0, tension: 0.25, spanGaps: true }
+    ] },
+    options: Object.assign({}, base, {
+      scales: { x: { grid: grid, ticks: { maxTicksLimit: 6, maxRotation: 0 } }, y: { grid: grid, suggestedMin: 15, suggestedMax: 40, title: { display: true, text: '°C' } } },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } }, tooltip: tip }
+    })
+  });
+
+  charts.hum = new Chart($('cHum'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Relative humidity (%)', data: [], borderColor: '#27475f', backgroundColor: 'rgba(39,71,95,.16)', fill: true, borderWidth: 1.8, pointRadius: 0, tension: 0.25, spanGaps: true }] },
+    options: Object.assign({}, base, {
+      scales: { x: { grid: grid, ticks: { maxTicksLimit: 6, maxRotation: 0 } }, y: { grid: grid, min: 0, max: 100, title: { display: true, text: '%' } } },
+      plugins: { legend: { display: false }, tooltip: tip }
+    })
+  });
+
+  charts.comp = new Chart($('cComp'), {
+    type: 'bar',
+    data: { labels: ['WBGT'], datasets: [
+      { label: '0.7 × wet-bulb', data: [0], backgroundColor: '#27475f' },
+      { label: '0.2 × globe', data: [0], backgroundColor: '#7a1f1d' },
+      { label: '0.1 × air', data: [0], backgroundColor: '#9a6b1f' }
+    ] },
+    options: Object.assign({}, base, {
+      indexAxis: 'y',
+      scales: { x: { stacked: true, grid: grid, min: 0, title: { display: true, text: '°C' } }, y: { stacked: true, grid: { display: false }, ticks: { display: false } } },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } }, tooltip: tip }
+    })
+  });
+
+  charts.dist = new Chart($('cDist'), {
+    type: 'doughnut',
+    data: { labels: LEVELS.map(function (l) { return l.name; }), datasets: [{ data: [0, 0, 0, 0], backgroundColor: LEVELS.map(function (l) { return l.color; }), borderColor: '#f7f1e3', borderWidth: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '58%', animation: { duration: 300 },
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12 } }, tooltip: tip } }
+  });
+}
+
+function downsample(rows, maxPts) {
+  if (rows.length <= maxPts) return rows;
+  var size = Math.ceil(rows.length / maxPts), out = [], i, j, k, keys = ['wbgt', 'tdb', 'tg', 'tnwb', 'rh'];
+  for (i = 0; i < rows.length; i += size) {
+    var chunk = rows.slice(i, i + size), o = { ts: chunk[Math.floor(chunk.length / 2)].ts };
+    for (k = 0; k < keys.length; k++) {
+      var sum = 0, n = 0;
+      for (j = 0; j < chunk.length; j++) { if (isNum(chunk[j][keys[k]])) { sum += chunk[j][keys[k]]; n++; } }
+      o[keys[k]] = n ? sum / n : null;
+    }
+    out.push(o);
+  }
+  return out;
+}
+function tickLabel(ts) {
+  var d = new Date(ts);
+  var hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  if (rangeKey === '7d') return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + hm;
+  return hm;
+}
+function renderComposition() {
+  if (!charts.comp) return;
+  var L = latest;
+  if (L && isNum(L.wbgt) && isNum(L.tnwb) && isNum(L.tg) && isNum(L.tdb)) {
+    charts.comp.data.datasets[0].data = [0.7 * L.tnwb];
+    charts.comp.data.datasets[1].data = [0.2 * L.tg];
+    charts.comp.data.datasets[2].data = [0.1 * L.tdb];
+    charts.comp.update('none');
+  }
+}
+function scheduleCharts() {
+  clearTimeout(chartTimer);
+  chartTimer = setTimeout(updateCharts, 250);
+}
+function updateCharts() {
+  if (!charts.wbgt) return;
+  var rows = histRows.slice().sort(function (a, b) { return a.ts - b.ts; });
+
+  // append the live reading so the right-hand end of every chart moves with the device
+  if (latest && isNum(latest.wbgt) && isNum(latest.ts) && deviceState() === 'online' &&
+      (!rows.length || latest.ts > rows[rows.length - 1].ts)) {
+    rows.push({ ts: latest.ts, wbgt: latest.wbgt, tdb: latest.tdb, tg: latest.tg, tnwb: latest.tnwb, rh: latest.rh, level: latest.level });
+  }
+
+  var ds = downsample(rows, 600), labels = ds.map(function (r) { return tickLabel(r.ts); });
+  function col(k) { return ds.map(function (r) { return isNum(r[k]) ? +r[k].toFixed(2) : null; }); }
+  charts.wbgt.data.labels = labels;  charts.wbgt.data.datasets[0].data = col('wbgt');
+  charts.temps.data.labels = labels; charts.temps.data.datasets[0].data = col('tdb'); charts.temps.data.datasets[1].data = col('tg'); charts.temps.data.datasets[2].data = col('tnwb');
+  charts.hum.data.labels = labels;   charts.hum.data.datasets[0].data = col('rh');
+  charts.wbgt.update('none'); charts.temps.update('none'); charts.hum.update('none');
+
+  var counts = [0, 0, 0, 0], total = 0;
+  rows.forEach(function (r) { var l = levelFromRow(r); if (l >= 0) { counts[l]++; total++; } });
+  charts.dist.data.datasets[0].data = counts;
+  charts.dist.data.labels = LEVELS.map(function (l, i) { return l.name + ' ' + (total ? Math.round(counts[i] * 100 / total) : 0) + '%'; });
+  charts.dist.update('none');
+
+  $('chartNote').textContent = rows.length ? '' : 'No records in this period yet. One record is saved every minute while the station is online.';
+  renderTable(histRows.slice().sort(function (a, b) { return b.ts - a.ts; }));
+}
+
+function renderTable(desc) {
+  $('recCount').textContent = desc.length;
+  var body = $('recBody');
+  if (!desc.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:18px">No records in this period yet.</td></tr>'; return; }
+  var h = '', i, r, lv;
+  for (i = 0; i < Math.min(desc.length, 60); i++) {
+    r = desc[i]; lv = levelFromRow(r);
+    h += '<tr><td>' + esc(dateTime(r.ts)) + '</td><td>' + f1(r.tdb) + '</td><td>' + f1(r.tg) + '</td><td>' + f1(r.tnwb) + '</td><td>' + f0(r.rh) +
+         '</td><td><b>' + f1(r.wbgt) + '</b></td><td>' + (lv >= 0 ? '<span class="chip" style="background:' + LEVELS[lv].color + '">' + esc(LEVELS[lv].name) + '</span>' : '—') + '</td></tr>';
+  }
+  body.innerHTML = h;
+}
+
+/* =====================================================================================
+   history (database) + export
+   ===================================================================================== */
+function loadHistory() {
+  if (!db) return;
+  if (histQuery) histQuery.off();
+  histRows = [];
+  var since = serverNow() - RANGES[rangeKey];
+  histQuery = db.ref('history/' + DEVICE_ID).orderByChild('ts').startAt(since);
+  histQuery.on('child_added', function (snap) {
+    var v = snap.val();
+    if (v && isNum(v.ts)) { histRows.push(v); scheduleCharts(); }
+  });
+  scheduleCharts();
+}
+
+function setExportRange(fromMs, toMs) {
+  $('expFrom').value = toLocalInput(fromMs);
+  $('expTo').value = toLocalInput(toMs);
+}
+
+function exportExcel() {
+  var msg = $('expMsg'), btn = $('expBtn');
+  if (!db) { msg.textContent = 'Database not connected.'; return; }
+  if (!window.XLSX) { msg.textContent = 'Excel library could not load. Check your connection.'; return; }
+  var from = new Date($('expFrom').value).getTime(), to = new Date($('expTo').value).getTime();
+  if (!isFinite(from) || !isFinite(to) || to <= from) { msg.textContent = 'Choose a valid From and To.'; return; }
+  btn.disabled = true; msg.textContent = 'Reading the database…';
+
+  db.ref('history/' + DEVICE_ID).orderByChild('ts').startAt(from).endAt(to).once('value').then(function (snap) {
+    var rows = [];
+    snap.forEach(function (c) { var v = c.val(); if (v && isNum(v.ts)) rows.push(v); });
+    rows.sort(function (a, b) { return a.ts - b.ts; });
+    if (!rows.length) { msg.textContent = 'No records in this period.'; btn.disabled = false; return; }
+
+    var data = rows.map(function (r) {
+      var lv = levelFromRow(r), d = new Date(r.ts);
+      return {
+        'Date': d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        'Time': clock(r.ts),
+        'Air temperature (°C) - online': isNum(r.tdb) ? r.tdb : '',
+        'Globe temperature (°C) - measured': isNum(r.tg) ? r.tg : '',
+        'Wet-bulb temperature (°C) - calculated': isNum(r.tnwb) ? r.tnwb : '',
+        'Relative humidity (%) - online': isNum(r.rh) ? r.rh : '',
+        'WBGT (°C)': isNum(r.wbgt) ? r.wbgt : '',
+        'Level': lv >= 0 ? LEVELS[lv].name : '',
+        'Recommended action': lv >= 0 ? LEVELS[lv].full : ''
+      };
+    });
+
+    var wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 13 }, { wch: 10 }, { wch: 28 }, { wch: 32 }, { wch: 36 }, { wch: 28 }, { wch: 11 }, { wch: 12 }, { wch: 52 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Records');
+
+    var about = [
+      ['HeatShield - WBGT station record'],
+      ['Station', DEVICE_ID],
+      ['Period', dateTime(from) + '  to  ' + dateTime(to)],
+      ['Records', rows.length],
+      ['Exported', dateTime(Date.now())],
+      [],
+      ['Formula', 'WBGT = 0.7 x Tnwb + 0.2 x Tg + 0.1 x Tdb'],
+      ['Tnwb', 'natural wet-bulb temperature, calculated from air temperature and humidity (Stull, 2011)'],
+      ['Tg', 'black-globe temperature, measured by the station'],
+      ['Tdb', 'air temperature (dry-bulb), online value for the station coordinates'],
+      ['Levels', 'NORMAL < 25.0 | CAUTION 25.0-27.9 | HIGH RISK 28.0-31.4 | EXTREME >= 31.5 (ACGIH screening values, moderate work)'],
+      ['Note', 'Screening tool for a student project, not a medical or safety-certified instrument. Air temperature and humidity are regional online values.'],
+      [],
+      ['References']
+    ];
+    REFS_TEXT.forEach(function (t, i) { about.push([(i + 1) + '. ' + t]); });
+    var wsA = XLSX.utils.aoa_to_sheet(about);
+    wsA['!cols'] = [{ wch: 22 }, { wch: 110 }];
+    XLSX.utils.book_append_sheet(wb, wsA, 'About');
+
+    var n = new Date(), name = 'HeatShield_records_' + n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate()) + '_' + pad2(n.getHours()) + pad2(n.getMinutes()) + '.xlsx';
+    XLSX.writeFile(wb, name);
+    msg.textContent = rows.length + ' records saved to ' + name;
+    btn.disabled = false;
+  }).catch(function (e) {
+    msg.textContent = 'Could not read the database: ' + (e && e.message ? e.message : e);
+    btn.disabled = false;
+  });
+}
+
+/* =====================================================================================
+   firebase + start-up
+   ===================================================================================== */
+function configured() {
+  return !/PASTE_/.test(FIREBASE_CONFIG.apiKey + FIREBASE_CONFIG.databaseURL + FIREBASE_CONFIG.projectId);
+}
+
+function initFirebase() {
+  if (!configured()) { $('setupBox').hidden = false; $('lampText').textContent = 'Not configured'; return; }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+  } catch (e) {
+    $('setupBox').hidden = false;
+    $('setupBox').innerHTML = '<b class="k">Could not start the database link.</b> ' + esc(e && e.message ? e.message : e);
+    return;
+  }
+  db.ref('.info/serverTimeOffset').on('value', function (s) {
+    serverOffset = s.val() || 0;
+    if (!offsetReady) {
+      offsetReady = true;
+      setExportRange(serverNow() - 24 * 3600e3, serverNow());
+      loadHistory();
+    }
+  });
+  db.ref('.info/connected').on('value', function (s) { fbConnected = !!s.val(); renderStatus(); });
+  db.ref('latest/' + DEVICE_ID).on('value', function (s) {
+    latest = s.val();
+    renderValues();
+    renderStatus();
+    scheduleCharts();
+  });
+}
+
+function wireUi() {
+  var tabs = $('rangeTabs').querySelectorAll('button');
+  Array.prototype.forEach.call(tabs, function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(tabs, function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      rangeKey = b.getAttribute('data-r');
+      loadHistory();
+    });
+  });
+  Array.prototype.forEach.call($('presets').querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () {
+      var p = b.getAttribute('data-pre'), span = p === '24h' ? 24 * 3600e3 : p === '7d' ? 7 * 24 * 3600e3 : 30 * 24 * 3600e3;
+      setExportRange(serverNow() - span, serverNow());
+    });
+  });
+  $('expBtn').addEventListener('click', exportExcel);
+}
+
+function start() {
+  runLanding();
+  buildDial();
+  initCharts();
+  wireUi();
+  renderLcd();
+  updateClock();
+  initFirebase();
+  setInterval(function () { updateClock(); renderStatus(); }, 1000);
+  setInterval(nextLcdPage, 4000);
+}
+start();
+
+})();
+</script>
+</body>
+</html>
